@@ -24,9 +24,11 @@ pip install -r requirements.txt
 
 ## Reproducing Results
 
-1. Run `Experiments.ipynb` top to bottom — this will download the Adult dataset automatically via OpenML and save results
+1. Run `Experiments.ipynb` top to bottom — this will download the Adult and Bank Marketing datasets automatically via OpenML and save results
 2. Run `plot_results.ipynb` to generate figures from saved results
 
 ## Dataset
+Experiments use two datasets fetched automatically via `sklearn.datasets.fetch_openml`:
 
-Experiments use the [Adult Income dataset](https://www.openml.org/d/1590) from OpenML, fetched automatically via `sklearn.datasets.fetch_openml`.
+- [Adult Income dataset](https://www.openml.org/d/1590) from OpenML
+- [Bank Marketing dataset](https://www.openml.org/d/1461) from OpenML
