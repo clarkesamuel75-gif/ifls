@@ -305,7 +305,7 @@ def GTG_Shapley(client_logits, y_val, data_sizes,
     phi_history = deque(maxlen=m + 2)  
     total_N = sum(data_sizes)
 
-    # --- Precompute all model outputs once ---
+    # Precompute all model outputs once
     model_outputs = []
 
     for i in range(n):
@@ -448,7 +448,7 @@ def IFLS(X_val, y_val, fed_ensemble, task = 'classification', M = 20):
 
 
     logits = fed_ensemble.get_base_logits(X_val)
-    if logits.shape[0] == K: # If it's (K, Samples), flip it
+    if logits.shape[0] == K: 
         logits = logits.T
 
 
@@ -503,12 +503,11 @@ def make_clients_pure_label_skew(X, y, K=10, samples_per_client= None, alpha=0.5
     else:
         raise ValueError("samples_per_client must be int, lsit, or None")
 
-    # 1. Group indices by class
+    # Group indices by class
     idx0 = np.where(y == 0)[0]
     idx1 = np.where(y == 1)[0]
     
-    # 2. Determine class proportions for each client using Dirichlet
-    # This ensures each client has a different "mix"
+    # Determine class proportions for each client using Dirichlet
     class_proportions = np.random.dirichlet([alpha, alpha], K) 
     
     clients = []
@@ -521,8 +520,8 @@ def make_clients_pure_label_skew(X, y, K=10, samples_per_client= None, alpha=0.5
         n0 = n_samples - n1
         
         # Draw indices (with replacement if dataset is small, or without if large)
-        selected_idx0 = np.random.choice(idx0, n0, replace=False)
-        selected_idx1 = np.random.choice(idx1, n1, replace=False)
+        selected_idx0 = np.random.choice(idx0, n0, replace=True)
+        selected_idx1 = np.random.choice(idx1, n1, replace=True)
         
         inds = np.concatenate([selected_idx0, selected_idx1])
         np.random.shuffle(inds)
@@ -564,7 +563,7 @@ def make_clients_size_skew(X, y, K = 10, seed = 0):
         0.25, 0.25,
         0.30, 0.30
     ])
-    # Already sums to 1.0, but normalise defensively
+    
     proportions /= proportions.sum()
     
     n = len(X)
@@ -585,46 +584,50 @@ def make_clients_size_skew(X, y, K = 10, seed = 0):
 
 
 
-
-def load_data(task = 'classification'):
+def load_data(dataset = 'adult',task = 'classification'):
     """
-    Fetch and preprocess the Adult Income dataset from OpenML.
+    Fetch and preprocess a tabular dataset for federated learning experiments.
     Categorical features are label-encoded. Data is split into
     train (60%), validation (20%), and test (20%) sets.
 
     Args:
+        dataset: 'adult' or 'bank'
         task: 'classification' (binary income label) or 'regression' (float label)
     Returns:
         X_train, X_val, y_train, y_val
     """
-    adult = fetch_openml(name='adult', version=2, as_frame=True, parser='auto')
-    X = adult.data.copy()
-    if task == 'classification':
-        y = (adult.target == '>50K').astype(int).values
-        stratify_y = y
-    else:
-        y = (adult.target == '>50K').astype(float).values
-        stratify_y = None
+    if dataset == 'adult':
+        data = fetch_openml(name='adult', version=2, as_frame=True, parser='auto')
+        X = data.data.copy()
+        y_raw = (data.target == '>50K')
 
-    cat_cols = X.select_dtypes(include=['category','object']).columns
+    elif dataset == 'bank':
+        data = fetch_openml(name='bank-marketing', version=1, as_frame=True, parser='auto')
+        X = data.data.copy()
+        y_raw = (data.target == '2')  # 1 = no, 2 = yes (subscribed)
+
+    else:
+        raise ValueError(f"Unknown dataset '{dataset}'. Choose 'adult' or 'bank'.")
+
+    y = y_raw.astype(int).values if task == 'classification' else y_raw.astype(float).values
+    stratify_y = y if task == 'classification' else None
+
+    cat_cols = X.select_dtypes(include=['category', 'object']).columns
     for col in cat_cols:
         le = LabelEncoder()
         X[col] = le.fit_transform(X[col].astype(str))
-    
+
     X = X.values
-    
+
     X_trainval, X_test, y_trainval, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=stratify_y
     )
     second_strat = y_trainval if task == 'classification' else None
-    
+
     X_train, X_val, y_train, y_val = train_test_split(
         X_trainval, y_trainval, test_size=0.25, random_state=42, stratify=second_strat
     )
     return X_train, X_val, y_train, y_val
-
-
-from scipy.stats import spearmanr, pearsonr
 
 def calculate_metrics(target, reference, prefix):
     """
